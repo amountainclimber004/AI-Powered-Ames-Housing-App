@@ -4,25 +4,22 @@ import joblib
 from tensorflow import keras
 import tensorflow as tf
 
-# Define a custom mean squared error function
-def mse(y_true, y_pred):
-    return tf.reduce_mean(tf.square(y_true - y_pred))
-
 # === Load pre-trained models and preprocessors ===
-# (Ensure that the following files are in your repository)
-model_selected = keras.models.load_model('model_selected.h5', custom_objects={'mse': mse})
-model_all = keras.models.load_model('model_all.h5', custom_objects={'mse': mse})
+model_selected = keras.models.load_model('model_selected.h5',
+                                         custom_objects={'mse': tf.keras.losses.MeanSquaredError()})
+model_all = keras.models.load_model('model_all.h5',
+                                    custom_objects={'mse': tf.keras.losses.MeanSquaredError()})
+
 preprocessor_selected = joblib.load('preprocessor_selected.pkl')
 preprocessor_all = joblib.load('preprocessor_all.pkl')
 
-# === Define default values for non-essential features for the full model ===
+# === Define default values for non-essential features ===
 default_values = {
-    'Age': 30,             # Will be overwritten by user input
-    'Gr Liv Area': 1500,   # Will be overwritten by user input
-    'Lot Area': 8000,      # Will be overwritten by user input
-    'Overall Qual': 6,     # Will be overwritten by user input
+    'Age': 30,  # Will be overwritten by user input
+    'Gr Liv Area': 1500,  # Will be overwritten by user input
+    'Lot Area': 8000,  # Will be overwritten by user input
+    'Overall Qual': 6,  # Will be overwritten by user input
     'Neighborhood': 'CollgCr',  # Will be overwritten by user input
-    # Add other non-essential features with default values as needed
 }
 
 st.title("Ames Housing Price Prediction")
@@ -50,21 +47,30 @@ if st.button("Predict Sale Price"):
             'Overall Qual': [overall_qual],
             'Neighborhood': [neighborhood]
         })
+       
         # Preprocess input using the selected-features preprocessor
         processed_data = preprocessor_selected.transform(input_data)
+       
         # Get prediction from the essential-features model
         prediction = model_selected.predict(processed_data)
+       
         st.success(f"Predicted Sale Price (Essential Model): ${prediction[0][0]:,.2f}")
     else:
-        # Load default values for all features from CSV
+        # Load default values for all features
         default_all = pd.read_csv('default_all_features.csv', index_col=0)
+       
         # Overwrite the essential features with user inputs
         default_all.loc[0, 'Age'] = age
         default_all.loc[0, 'Gr Liv Area'] = gr_liv_area
         default_all.loc[0, 'Lot Area'] = lot_area
         default_all.loc[0, 'Overall Qual'] = overall_qual
         default_all.loc[0, 'Neighborhood'] = neighborhood
+       
+        # Preprocess input using the all-features preprocessor
         processed_data = preprocessor_all.transform(default_all)
+       
+        # Get prediction from the all-features model
         prediction = model_all.predict(processed_data)
+       
         st.success(f"Predicted Sale Price (All Features Model): ${prediction[0][0]:,.2f}")
 
