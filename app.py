@@ -4,25 +4,30 @@ import joblib
 from tensorflow import keras
 import tensorflow as tf
 
+# Define a custom mean squared error function
+def mse(y_true, y_pred):
+    return tf.reduce_mean(tf.square(y_true - y_pred))
+
 # === Load pre-trained models and preprocessors ===
-# Ensure that the following files exist in your repository
-model_selected = keras.models.load_model('model_selected.h5', custom_objects={'mse': tf.keras.losses.mean_squared_error})
-model_all = keras.models.load_model('model_all.h5', custom_objects={'mse': tf.keras.losses.mean_squared_error})
+# (Ensure that the following files are in your repository)
+model_selected = keras.models.load_model('model_selected.h5', custom_objects={'mse': mse})
+model_all = keras.models.load_model('model_all.h5', custom_objects={'mse': mse})
 preprocessor_selected = joblib.load('preprocessor_selected.pkl')
 preprocessor_all = joblib.load('preprocessor_all.pkl')
 
-# === Define default values for non-essential features ===
+# === Define default values for non-essential features for the full model ===
 default_values = {
-    'Age': 30,
-    'Gr Liv Area': 1500,
-    'Lot Area': 8000,
-    'Overall Qual': 6,
-    'Neighborhood': 'CollgCr',
+    'Age': 30,             # Will be overwritten by user input
+    'Gr Liv Area': 1500,   # Will be overwritten by user input
+    'Lot Area': 8000,      # Will be overwritten by user input
+    'Overall Qual': 6,     # Will be overwritten by user input
+    'Neighborhood': 'CollgCr',  # Will be overwritten by user input
+    # Add other non-essential features with default values as needed
 }
 
 st.title("Ames Housing Price Prediction")
 
-# Sidebar model selection
+# Sidebar: let the user choose which model to use
 model_choice = st.sidebar.radio("Select Model", ("Essential Features Model", "All Features Model"))
 
 st.header("Input Housing Features (Essential Only)")
@@ -32,12 +37,12 @@ age = st.number_input("Age (Yr Sold - Year Built)", min_value=0, max_value=200, 
 gr_liv_area = st.number_input("Ground Living Area (sq ft)", min_value=300, max_value=10000, value=1500)
 lot_area = st.number_input("Lot Area (sq ft)", min_value=500, max_value=50000, value=8000)
 overall_qual = st.number_input("Overall Quality (1-10)", min_value=1, max_value=10, value=6)
-neighborhood = st.selectbox("Neighborhood", ["CollgCr", "Veenker", "Crawfor", "NoRidge", "Mitchel"])
+neighborhood = st.selectbox("Neighborhood", options=["CollgCr", "Veenker", "Crawfor", "NoRidge", "Mitchel"])
 
-# Prediction button
+# When the user clicks the Predict button
 if st.button("Predict Sale Price"):
     if model_choice == "Essential Features Model":
-        # Build a DataFrame from essential features
+        # Build a DataFrame from the essential features only
         input_data = pd.DataFrame({
             'Age': [age],
             'Gr Liv Area': [gr_liv_area],
@@ -45,23 +50,20 @@ if st.button("Predict Sale Price"):
             'Overall Qual': [overall_qual],
             'Neighborhood': [neighborhood]
         })
-        
-        # Preprocess input
+        # Preprocess input using the selected-features preprocessor
         processed_data = preprocessor_selected.transform(input_data)
+        # Get prediction from the essential-features model
         prediction = model_selected.predict(processed_data)
         st.success(f"Predicted Sale Price (Essential Model): ${prediction[0][0]:,.2f}")
     else:
-        # Load default feature set for full model
+        # Load default values for all features from CSV
         default_all = pd.read_csv('default_all_features.csv', index_col=0)
-        
-        # Update essential features with user inputs
+        # Overwrite the essential features with user inputs
         default_all.loc[0, 'Age'] = age
         default_all.loc[0, 'Gr Liv Area'] = gr_liv_area
         default_all.loc[0, 'Lot Area'] = lot_area
         default_all.loc[0, 'Overall Qual'] = overall_qual
         default_all.loc[0, 'Neighborhood'] = neighborhood
-        
-        # Preprocess and predict
         processed_data = preprocessor_all.transform(default_all)
         prediction = model_all.predict(processed_data)
         st.success(f"Predicted Sale Price (All Features Model): ${prediction[0][0]:,.2f}")
